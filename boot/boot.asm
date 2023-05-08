@@ -28,52 +28,80 @@ VolumeID 			dd 12345678h 		; VolumeID: any number
 VolumeLabel 		db "BromineBoot" 	; Volume Label: any 11 chars
 FileSystem 			db "FAT12" 			; File System type: don't change!
 
+
 _start:
-	mov ax, 07C0h 		; move 0x7c00 into ax
-	mov ds, ax 			; set data segment to where we are loaded
-	mov sp, 0x7c00
-	mov dh, 1
-	mov ah, 0 			; moves ah to 0 to go to input mode
-	mov al, 3 			
-	int 0x10 			; finally cleared
-	mov si, string 		; Put string position into SI
-	call print_string 	; Call our string-printing routine
+	mov ax, 07C0H 						; mov 0x7c00 into ax
+	mov ds, ax 							; set data segment to where we are loaded
+	mov dh, 1 							; initalize the first line
+	
+	mov ah, 0
+	mov al, 3
+	int 0x10 							; clear the screen
+	
+	mov si, welcome 					; set si to welcome
+	call print_string 					; print welcome
 
-	jmp $
+	.loop2:
+		mov ah, 0x0e 						; switch to teletype mode
+		mov al, '>' 						; set al to >
+		int 0x10 							; print >
+		call input 							; call input function to take an input
+		jmp .loop2		
 
-	string db "BROMINE OS Minimal Command Line [BIOS]", 0
+	jmp $ 								; infinite loop
+	
+	welcome db "Welcome to Bromine OS Minimal Shell", 10, 0
+	prompt db "Type Here >", 0
 
-print_string:
-	mov ah, 0Eh 		; int 10h 'print char' function
-.loop:
-	lodsb 				; load string byte to al
-	cmp al, 0 			; cmp al with 0
-	je .askfirst 		; if char is zero, ret
-	int 10h 			; else, print
-	jmp .loop
-.askfirst:
-	mov ah, 02h
+input:
+	mov ah, 0
+	int 0x16
+	mov ah, 0x0e
+	mov al, al
+	int 0x10
+;	cmp al, 8
+;	je backspace
+	cmp al, 13
+;	inc dl
+	jne input
+	jmp gotouser
+
+gotouser:
+	mov ah, 0x02
 	mov bh, 0
 	inc dh
 	mov dh, dh
 	mov dl, 0
-	int 10h
-	mov ah, 0x0e
-	mov al, 10
-	int 0x10
-	mov al, '>'
-	int 0x10
-	jmp .input
-.input:
-	mov ah, 0
-	int 0x16
-	push ax
-	mov ah, 0x0e
-	int 0x10
-	cmp al, 13
-	jne .input
-	je .askfirst
-.done:
+	int 0x10	
 	ret
-	times 510-($-$$) db 0 	; Pad boot sectors
-	db 0x55, 0xaa 		 	; The standard PC Boot Signature
+
+;backspace:
+;	mov ah, 0x0e
+;	mov al, ' '
+;	int 0x10
+;	mov ah, 0x02
+;	mov bh, 0
+;	mov dh, dh
+;	dec dl
+;	int 0x10
+;	jmp input
+print_string:
+	mov ah, 0x0e
+.loop:
+	lodsb 								; load single byte into al
+	cmp al, 0 							; compare al to 0
+	je .goback							; if al == 0 then jump to .done
+	int 0x10 							; print al register as character BIOS Interrupt
+	jmp .loop
+.goback:
+	mov ah, 0x02 						; set BIOS function for setting cursor position
+	mov bh, 0 							; set page to 0
+	inc dh
+	mov dh, dh 							; set row to dh itself
+	mov dl, 0 							; set column to 0
+	int 0x10 							; set cursor
+	ret 								; transfer back control
+.done:
+	ret 								; transfers control to the return address located on the stack
+	times 510-($-$$) db 0 				; padding for file to fill 510 bytes
+	db 0x55, 0xaa 						; last two bytes of the boot sector
