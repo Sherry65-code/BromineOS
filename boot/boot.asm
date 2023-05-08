@@ -31,22 +31,48 @@ FileSystem 			db "FAT12" 			; File System type: don't change!
 _start:
 	mov ax, 07C0h 		; move 0x7c00 into ax
 	mov ds, ax 			; set data segment to where we are loaded
-	
+	mov sp, 0x7c00
+	mov dh, 1
+	mov ah, 0 			; moves ah to 0 to go to input mode
+	mov al, 3 			
+	int 0x10 			; finally cleared
 	mov si, string 		; Put string position into SI
 	call print_string 	; Call our string-printing routine
 
 	jmp $
 
-	string db "Welcome to BromineOS_BOOT in Command Mode", 0
+	string db "BROMINE OS Minimal Command Line [BIOS]", 0
 
 print_string:
 	mov ah, 0Eh 		; int 10h 'print char' function
 .loop:
 	lodsb 				; load string byte to al
 	cmp al, 0 			; cmp al with 0
-	je .done 			; if char is zero, ret
+	je .askfirst 		; if char is zero, ret
 	int 10h 			; else, print
 	jmp .loop
+.askfirst:
+	mov ah, 02h
+	mov bh, 0
+	inc dh
+	mov dh, dh
+	mov dl, 0
+	int 10h
+	mov ah, 0x0e
+	mov al, 10
+	int 0x10
+	mov al, '>'
+	int 0x10
+	jmp .input
+.input:
+	mov ah, 0
+	int 0x16
+	push ax
+	mov ah, 0x0e
+	int 0x10
+	cmp al, 13
+	jne .input
+	je .askfirst
 .done:
 	ret
 	times 510-($-$$) db 0 	; Pad boot sectors
