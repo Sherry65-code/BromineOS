@@ -1,0 +1,9 @@
+*/*.iso
+*/*.bin
+*/*.flp
+*/*.img
+*.iso
+*.bin
+*.flp
+*.img
+
